@@ -1,0 +1,92 @@
+---
+
+- block:
+
+  - name: Validate we have required variables
+    block:
+
+    - fail: msg="Required variable '{{ item }}' is not defined"
+      when: item is not defined
+      with_items:
+        - api_key
+        - node_tags
+
+  - name: Download and validate the ns1-installer
+    block:
+
+    - name: Get ns1-installer checksum
+      get_url:
+        url: "{{ nsone_installer_url }}/{{ nsone_installer_version }}/sha256sum.txt"
+        dest: /tmp/ns1-installer.checksum
+        owner: root
+        group: root
+        mode: "0400"
+
+    - name: Load checksum data
+      slurp:
+        src: /tmp/ns1-installer.checksum
+      register: nsone_installer_checksum
+
+    - name: Remove checksum file
+      file:
+        path: /tmp/ns1-installer.checksum
+        state: absent
+
+    - name: Get ns1-installer
+      get_url:
+        url: "{{ nsone_installer_url }}/{{ nsone_installer_version }}/ns1-installer"
+        dest: "{{ ns1_installer }}"
+        checksum: "sha256:{{ my_checksum.split()[0] }}"
+        mode: "0700"
+        owner: root
+        group: root
+      vars:
+        my_checksum: "{{ nsone_installer_checksum.content | b64decode }}"
+
+  - name: Bootstrap the nodes
+    block:
+
+    - name: set painform_environment fact
+      set_fact:
+        painform_environment: "{{ lookup('env', 'PAINFORM_ENV') }}"
+
+    - name: Install ns1 agent/proxy
+      shell:
+        cmd: "{{ ns1_installer }} install"
+
+    - name: Register the node
+      shell:
+        cmd: "{{ ns1_installer }} registerNode -a {{ api_key }}"
+      when: register_node is true
+
+    - name: Apply tags to node
+      shell:
+        cmd: "{{ ns1_installer }} updateNode -a {{ api_key }} -t {{ item.key }}={{ item.value }}"
+      with_items: "{{ lookup('dict', node_tags) }}"
+      when: register_node is true or update_node is true
+
+    - name: Get the node ID
+      slurp:
+        src: /etc/ns1/node_id
+      register: nsone_node_id
+
+    - name: Bootstrap the node (retry if failed)
+      shell:
+        cmd: "{{ ns1_installer }} bootstrapNode -a {{ api_key }}"
+      register: result
+      retries: 2
+      delay: 5
+      until: result is not failed
+      when: bootstrap_node is true
+
+    - name: Deploy the node
+      uri:
+        url: "https://api.prod.svc.ns1.dev/v1/fleet/node/{{ nsone_node_id.content | b64decode }}/deploy" 
+        method: PUT
+        headers:
+          x-nsone-key: "{{ api_key }}"
+        status_code: [200, 202]
+      when: deploy_node is true
+
+  vars:
+    ns1_installer: "{{ nsone_installer_path }}/{{ nsone_installer_binary }}"

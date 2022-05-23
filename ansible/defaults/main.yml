@@ -1,0 +1,11 @@
+---
+nsone_installer_version: 0.0.2
+nsone_installer_path: /bin
+nsone_installer_binary: ns1-installer
+nsone_installer_url: https://static.prod.svc.ns1.dev/prod/installer
+
+register_node: true
+bootstrap_node: true
+update_node: true
+deploy_node: true
+...
