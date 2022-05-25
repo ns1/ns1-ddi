@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """ Collect diagnostics from Kubernetes runtime and containers """
 
+# Curently requires Python 3.7 and up. On Ubunutu 18.04 do:
+#    apt-get install python3.7
+
 from datetime import datetime
 import logging
 import os
@@ -57,18 +60,20 @@ def shell(command, input_string="", check=False, cwd=None):
 
 class Executor:
     """ Execute commands via kubectl or locally. """
-    def __init__(self, ns="default"):
-        self.namespace = ns
 
+    @staticmethod
     @_check_exec
-    def get_json(self, cmd):
+    def get_json(cmd, namespace):
         """ Extract Kubernetes status or config in JSON format. """
-        args = f'kubectl {cmd} -o json -n {self.namespace}'
+        args = f'kubectl {cmd} -o json' + \
+                (f' -n {namespace}' if namespace is not None else '')
         pipe = shell(args, check=True)
+        if pipe is None:
+            return None
         try:
             result = json.loads(pipe['stdout'])
         except json.JSONDecodeError as j:
-            logging.error('JSON decoding error: %s', j)
+            logging.error('command "%s": JSON decoding error: %s', args, j)
             return None
         return {
             'status': pipe['status'],
@@ -77,32 +82,35 @@ class Executor:
             'stderr': pipe['stderr']
         }
 
+    @staticmethod
     @_check_exec
-    def get_logs(self, pod_name):
+    def get_logs(pod_name):
         """ Extract Kubernetes container logs. """
         args = f'kubectl logs --all-containers --timestamps {pod_name}'
         return shell(args, check=True)
 
+    @staticmethod
     @_check_exec
-    def exec(self, pod, cmd):
+    def exec(pod, cmd):
         """ Run a command on the local host or in a Kubernetes container. """
         if pod == 'localhost':
             args = 'bash'
         else:
-            args = f'kubectl exec -i -n {self.namespace} {pod} -- bash'
+            args = f'kubectl exec -i {pod} -- bash'
         return shell(args, input_string=cmd)
 
+    @staticmethod
     @_check_exec
-    def copy(self, source, dest, localhost=False):
+    def copy(source, dest, localhost=False, namespace=None):
         """ Copy files from containers or local host into workdir. """
         if not localhost:
             if ':' in source and ':' in dest:
                 raise ValueError(
                     "cannot have colon character in both source and dest")
             if ':' in source:
-                source = f'{self.namespace}/{source}'
+                source = f'{namespace}/{source}'
             if ':' in dest:
-                dest = f'{self.namespace}/{dest}'
+                dest = f'{namespace}/{dest}'
             args = f'kubectl cp {source} {dest}'
         else:
             source = source.replace('localhost:', '')
@@ -138,11 +146,27 @@ class K8sDiags:
             htup[0].setLevel(htup[1])
             logger.addHandler(htup[0])
 
+        result = self.k.get_json('get namespaces', None)
+        if result is None or result['status'] != 0:
+            raise EnvironmentError('Error invoking kubectl, logged above')
+        self.namespaces_json = result['stdout']
+        self.namespaces = []
+        for item in self.namespaces_json['items']:
+            self.namespaces.append(item['metadata']['name'])
+
+        # namespace-independent data collection - namespace ignored
+        result = self.k.get_json(f'get nodes', 'default')
+        self.nodes = result['stdout']
+
+        # namespace-specific data collection
         self.kubedata = {}
-        for thing in ['pods', 'nodes', 'events', 'configmap']:
-            result = self.k.get_json(f'get {thing}')
-            self.kubedata[
-                thing] = result['stdout'] if result is not None else None
+        for namespace in self.namespaces:
+            namespace_dir = os.path.join(self.workdir, namespace)
+            os.makedirs(namespace_dir, exist_ok=True)
+            self.kubedata[namespace] = {}
+            for thing in ['pods', 'events', 'services', 'deployments', 'configmap']:
+                result = self.k.get_json(f'get {thing}', namespace)
+                self.kubedata[namespace][thing] = result['stdout'] if result is not None else None
 
     def archive(self, path=None):
         """ Create a tarball of the results. """
@@ -175,66 +199,72 @@ class K8sDiags:
     def save_json(self):
         """ Save collected data at specified path. """
         try:
-            for item in self.kubedata:
-                with open(os.path.join(self.workdir, f'{item}.json'),
-                          'w') as fref:
-                    json.dump(self.kubedata[item], fref, indent=2)
+            with open(os.path.join(self.workdir, 'nodes.json'),
+                      'w') as fref:
+                json.dump(self.nodes, fref, indent=2)
+            for namespace in self.namespaces:
+                for item in self.kubedata[namespace]:
+                    with open(os.path.join(self.workdir, namespace, f'{item}.json'),
+                              'w') as fref:
+                        json.dump(self.kubedata[namespace][item], fref, indent=2)
         except (IOError, OSError) as exc:
-            logging.error('cannot save K8s data to dir "%s": %s', dir, exc)
+            logging.error('cannot save K8s data: %s', exc)
 
     def match_labels(self, labels):
         """ Find pods that match all labels in argument. """
         results = []
-        for pod in self.kubedata['pods']['items']:
-            found = 0
-            for lab in labels:
-                for labelname in lab:
-                    if lab[labelname] == pod['metadata']['labels'][labelname]:
-                        found += 1
-            if found == len(labels):
-                results.append(pod['metadata']['name'])
+        for namespace in self.kubedata:
+            try:
+                for pod in self.kubedata[namespace]['pods']['items']:
+                    found = 0
+                    for lab in labels:
+                        for labelname in lab:
+                            if lab[labelname] == pod['metadata']['labels'][labelname]:
+                                found += 1
+                    if found == len(labels):
+                        results.append((namespace, pod['metadata']['name']))
+            except KeyError:
+                continue
         return results
 
     def k8s_node_checks(self):
         """ Report any node issues observed in Kubernetes status """
-        if self.kubedata['nodes'] is None:
-            logging.error('No node data found - is Kubernetes installed?')
-            return
 
-        for status_check in self.kubedata['nodes']['items'][0]['status']['conditions']:
-            for alert in NODE_CONDITION_ALERTS:
-                if alert == status_check['type'] and \
-                    NODE_CONDITION_ALERTS[alert] == status_check['status']:
-                    logging.error('Kubernetes condition in alert state: %s',
-                                  status_check['message'])
+        for node in self.nodes['items']:
+            node_name = node['metadata']['name']
+            for status_check in node['status']['conditions']:
+                for alert in NODE_CONDITION_ALERTS:
+                    if alert == status_check['type'] and \
+                        NODE_CONDITION_ALERTS[alert] == status_check['status']:
+                        message = status_check['message'] if 'message' in status_check else "(no further information)"
+                        logging.error('[%s] Kubernetes condition in alert state: %s', node_name, message)
 
     def k8s_event_checks(self):
         """ Report any pod issues observed in Kubernetes events. """
-        if self.kubedata['events'] is None:
-            logging.error('No event data found - is Kubernetes installed?')
-            return
-
-        if len(self.kubedata['events']['items']) == 0:
-            logging.info('Empty events list, no news presumed to be good news.')
-            return
 
         results = {}
-        for item in self.kubedata['events']['items']:
-            if item['type'] != 'Normal':
-                namespace = item['involvedObject'].get('namespace')
-                namespace_prefix = '' if namespace is None else namespace + '/'
+        for namespace in self.namespaces:
+            if 'events' not in self.kubedata[namespace]:
+                continue
+            if len(self.kubedata[namespace]['events']['items']) == 0:
+                logging.info('[namespace %s] no events found', namespace)
+                continue
+            for item in self.kubedata[namespace]['events']['items']:
+                if item['type'] != 'Normal':
+                    namespace = item['involvedObject'].get('namespace')
+                    namespace_prefix = '' if namespace is None else namespace + '/'
 
-                pod_name = namespace_prefix + item['involvedObject']['name']
-                if not pod_name in results:
-                    results[pod_name] = {'count': 0, 'types': set(), 'messages': set()}
-                results[pod_name]['count'] += 1
-                results[pod_name]['types'] |= {item['type']}
-                results[pod_name]['messages'] |= {item['message']}
-        if len(results) > 0:
-            for item in results:
-                logging.error('%d abnormal events for object %s: types %s, messages %s',
-                              results[item]['count'], item,
-                              results[item]['types'], results[item]['messages'])
+                    pod_name = namespace_prefix + item['involvedObject']['name']
+                    if not pod_name in results:
+                        results[pod_name] = {'count': 0, 'types': set(), 'messages': set()}
+                    results[pod_name]['count'] += 1
+                    results[pod_name]['types'] |= {item['type']}
+                    results[pod_name]['messages'] |= {item['message']}
+            if len(results) > 0:
+                for item in results:
+                    logging.warning('[namespace %s] %d abnormal events for object %s: types %s, messages %s',
+                                    namespace, results[item]['count'], item,
+                                    results[item]['types'], results[item]['messages'])
 
     def run_by_label(self, spec):
         """ Run commands in pods that match all specified labels. """
@@ -245,7 +275,7 @@ class K8sDiags:
         target_pods = []
         try:
             if localhost:
-                target_pods = ['localhost']
+                target_pods = [('localhost', 'localhost')]
             else:
                 status = 'searching pods for matching labels'
                 target_pods = self.match_labels(spec['labels'])
@@ -256,10 +286,10 @@ class K8sDiags:
 
             results = {}
             status = 'creating result struct'
-            for pod_name in target_pods:
+            for namespace, pod_name in target_pods:
                 results[pod_name] = []
 
-                pod_dir = os.path.join(self.workdir, pod_name)
+                pod_dir = os.path.join(self.workdir, namespace, pod_name)
                 status = 'creating workdir {pod_dir}'
                 os.makedirs(pod_dir, exist_ok=True)
 
@@ -295,8 +325,10 @@ class K8sDiags:
                     print(f"... retrieving {pod_name}:{target_file}")
                     ret = self.k.copy(
                         f'{pod_name}:{target_file}',
-                        os.path.join(self.workdir, pod_name,
-                                     os.path.basename(target_file)), localhost)
+                        os.path.join(self.workdir, namespace, pod_name,
+                                     os.path.basename(target_file)),
+                        localhost,
+                        namespace)
                     results[pod_name].append(ret)
                     i += 1
 
@@ -312,7 +344,8 @@ NODE_CONDITION_ALERTS = {
     "PIDPressure": "True",
     "DiskPressure": "True",
     "MemoryPressure": "True",
-    "NetworkUnavailable": "True"
+    "NetworkUnavailable": "True",
+    "ContainersReady": "False"
     }
 
 POD_DIAGS = [{
@@ -354,7 +387,13 @@ POD_DIAGS = [{
     'name': 'local',
     'localhost': True,
     'labels': [],
-    'cmds': ['uname -a', 'cat /etc/lsb-release', 'ip route'],
+    'cmds': [
+        'cat /etc/ns1/node_id',
+        'uname -a',
+        'cat /etc/lsb-release',
+        'ip route',
+        'iptables -L'
+    ],
     'copy': ['/etc/resolv.conf']
 }]
 
