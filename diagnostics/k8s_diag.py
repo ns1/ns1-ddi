@@ -408,7 +408,7 @@ POD_DIAGS = [{
         'free; echo; df',
         'ip route; echo; ip neighbor',
         'ss -apn || netstat -apn',
-        'iptables -Ln',
+        'iptables -L -n',
         'dig +short rs.dns-oarc.net TXT',
         'dig +short rs.dns-oarc.net TXT @localhost',
         'pstree -a',
