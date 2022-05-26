@@ -180,7 +180,7 @@ class K8sDiags:
         if path is None:
             path = os.path.join(self.tmpdir,
                                 os.path.basename(self.workdir) + '.tgz')
-        pipe = myshell(f'tar cvf {path} {relative_workdir}',
+        pipe = myshell(f'tar cvzf {path} {relative_workdir}',
                        check=True,
                        cwd=cwd)
         if pipe is not None:
@@ -357,6 +357,19 @@ POD_DIAGS = [{
     'cmds': [
         'supd health',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
+        'unbound-control status',
+        'unbound-control stats_noreset',
+        'unbound-control dump_cache',
+        'unbound-control dump_requestlist',
+        'unbound-control dump_infra',
+        'unbound-control list_stubs',
+        'unbound-control forward',
+        'unbound-control list_forwards',
+        'unbound-control list_insecure',
+        'unbound-control list_local_zones',
+        'unbound-control list_local_data',
+        'unbound-control ratelimit_list',
+        'unbound-control ip_ratelimit_list',
         'supd viewconfig -yn', 'supd generate_runtime_logs', 'lsof -i :53',
         'bash -c "sleep 3; dig www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
@@ -389,12 +402,18 @@ POD_DIAGS = [{
     'labels': [],
     'cmds': [
         'cat /etc/ns1/node_id',
-        'uname -a',
-        'cat /etc/lsb-release',
-        'ip route',
-        'iptables -L'
+        'uname -a; echo; cat /etc/lsb-release',
+        'ls -l /etc/resolv.conf; echo; cat /etc/resolv.conf',
+        'free; echo; df',
+        'ip route; echo; ip neighbor',
+        'ss -apn || netstat -apn',
+        'iptables -Ln',
+        'dig +short rs.dns-oarc.net TXT',
+        'dig +short rs.dns-oarc.net TXT @localhost',
+        'pstree -a',
+        'ps -ef'
     ],
-    'copy': ['/etc/resolv.conf']
+    'copy': []
 }]
 
 
