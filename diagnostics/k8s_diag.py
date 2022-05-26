@@ -356,7 +356,9 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'supd health',
+        'supd viewconfig -yn', 'supd generate_runtime_logs', 'lsof -i :53',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
+        'dview -path /ns1/data/var/lib/trex-cache/dns/',
         'unbound-control status',
         'unbound-control stats_noreset',
         'unbound-control dump_cache',
@@ -370,7 +372,6 @@ POD_DIAGS = [{
         'unbound-control list_local_data',
         'unbound-control ratelimit_list',
         'unbound-control ip_ratelimit_list',
-        'supd viewconfig -yn', 'supd generate_runtime_logs', 'lsof -i :53',
         'bash -c "sleep 3; dig www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
@@ -411,7 +412,8 @@ POD_DIAGS = [{
         'dig +short rs.dns-oarc.net TXT',
         'dig +short rs.dns-oarc.net TXT @localhost',
         'pstree -a',
-        'ps -ef'
+        'ps -ef',
+        'systemctl list-unit-files'
     ],
     'copy': []
 }]
