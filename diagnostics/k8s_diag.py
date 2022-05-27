@@ -359,6 +359,7 @@ POD_DIAGS = [{
         'supd viewconfig -yn', 'supd generate_runtime_logs', 'lsof -i :53',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'dview -path /ns1/data/var/lib/trex-cache/dns/',
+        'unbound -V',
         'unbound-control status',
         'unbound-control stats_noreset',
         'unbound-control dump_cache',
