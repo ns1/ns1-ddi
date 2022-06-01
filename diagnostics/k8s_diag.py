@@ -20,7 +20,7 @@ def _check_exec(func):
         try:
             ret = func(*args, **kwargs)
         except (OSError, IOError, subprocess.CalledProcessError,
-                ValueError) as exc:
+                ValueError, subprocess.TimeoutExpired) as exc:
             logging.error('command args "%s" encountered error: %s',
                           args[firstarg:], exc)
             return None
@@ -36,7 +36,7 @@ def _check_exec(func):
     return wrapper
 
 
-def shell(command, input_string="", check=False, cwd=None):
+def shell(command, input_string="", check=False, cwd=None, timeout=120):
     """ Run a shell command and format everything nicely. The calling func
       should use the @check_exec decorator. """
     pipe = subprocess.run(args=command,
@@ -44,7 +44,8 @@ def shell(command, input_string="", check=False, cwd=None):
                           capture_output=True,
                           shell=True,
                           check=check,
-                          cwd=cwd)
+                          cwd=cwd,
+                          timeout=timeout)
     stdout = pipe.stdout
     stdout = stdout.decode('utf-8')
     stderr = pipe.stderr
