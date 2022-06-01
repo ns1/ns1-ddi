@@ -1,1 +1,1 @@
-This repo is for DDI speciic tools
+This repo is for DDI specific tools
