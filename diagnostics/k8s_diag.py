@@ -236,11 +236,38 @@ class K8sDiags:
                 for alert in NODE_CONDITION_ALERTS:
                     if alert == status_check['type'] and \
                         NODE_CONDITION_ALERTS[alert] == status_check['status']:
-                        message = status_check['message'] if 'message' in status_check else "(no further information)"
-                        logging.error('[%s] Kubernetes condition in alert state: %s', node_name, message)
+                        message = status_check['message'] \
+                                if 'message' in status_check \
+                                else "(no further information)"
+                        logging.error('[%s] Kubernetes condition in alert state: %s',
+                                      node_name, message)
+
+    def k8s_pod_checks(self):
+        """ Report any issues observed in Kubernetes pod status. """
+        for namespace in self.namespaces:
+            if 'pods' not in self.kubedata[namespace]:
+                continue
+            if len(self.kubedata[namespace]['pods']['items']) == 0:
+                logging.info('[namespace %s] no pod data to check', namespace)
+            for item in self.kubedata[namespace]['pods']['items']:
+                for status in item['status']['containerStatuses']:
+                    if not status['ready']:
+                        logging.error('[namespace %s] pod %s/container %s not ready (%d restarts)',
+                                      namespace,
+                                      item['metadata']['name'],
+                                      status['image'],
+                                      status['restartCount'])
+                    elif status['restartCount'] > 0:
+                        logging.info('[namespace %s] pod %s/container %s has %d restarts: %s',
+                                     namespace,
+                                     item['metadata']['name'],
+                                     status['image'],
+                                     status['restartCount'],
+                                     status['state'])
+
 
     def k8s_event_checks(self):
-        """ Report any pod issues observed in Kubernetes events. """
+        """ Report any issues observed in Kubernetes events. """
 
         results = {}
         for namespace in self.namespaces:
@@ -426,6 +453,7 @@ def main():
     k = K8sDiags()
     k.save_json()
     k.k8s_node_checks()
+    k.k8s_pod_checks()
     k.k8s_event_checks()
 
     print("Running diagnostic commands on pods...")
@@ -441,9 +469,7 @@ def main():
 if __name__ == '__main__':
     main()
 
-# TODO
-
-# queries for status alarms, like restartCount > 0.
+# ADDITIONAL IDEAS
 
 # load a config file to read in additional pod_diags (like for debugging
 # a specific problem at customer site)
