@@ -420,11 +420,20 @@ POD_DIAGS = [{
     ],
     'copy': ['/ns1/data/log_bak', '/ns1/data/leases']
 }, {
-    'name': 'ns1-proxy-pod',
+    'name': 'ns1-proxy-container',
     'labels': [{
         'app': 'ns1-proxy'
     }],
     'cmds': ['grep address:.[^0] /etc/envoy/envoy.yaml'],
+}, {
+    'name': 'ns1-agent-container',
+    'labels': [{
+        'app': 'ns1-agent'
+    }],
+    'cmds': [
+        'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
+        ],
+    'copy': ['/greengrass/v2/logs/']
 }, {
     'name': 'local',
     'localhost': True,
