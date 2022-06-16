@@ -383,7 +383,9 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'supd health',
-        'supd viewconfig -yn', 'supd generate_runtime_logs', 'lsof -i :53',
+        'jq < /opt/ns1/supd/tmp/config.yml',
+        'supd generate_runtime_logs',
+        'lsof -i -n',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'dview -path /ns1/data/var/lib/trex-cache/dns/',
         'unbound -V',
@@ -400,7 +402,7 @@ POD_DIAGS = [{
         'unbound-control list_local_data',
         'unbound-control ratelimit_list',
         'unbound-control ip_ratelimit_list',
-        'bash -c "sleep 3; dig www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
+        'bash -c "rm -f /tmp/cmddi-dns-diag.tcp; sleep 3; dig @127.0.0.1 www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
@@ -447,7 +449,7 @@ POD_DIAGS = [{
         'ss -apn || netstat -apn',
         'iptables -L -n',
         'dig +short rs.dns-oarc.net TXT',
-        'dig +short rs.dns-oarc.net TXT @localhost',
+        'dig +short rs.dns-oarc.net TXT @127.0.0.1',
         'pstree -a',
         'ps -ef',
         'systemctl list-unit-files'
