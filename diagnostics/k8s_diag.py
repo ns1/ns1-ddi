@@ -261,6 +261,7 @@ class K8sDiags:
                                          f'podlogs-{pod_name}.txt'),
                             'w') as fref:
                         fref.write(ret['stdout'])
+                        logging.info('Copied log: %s/%s', namespace, pod_name)
 
             for item in self.kubedata[namespace]['pods']['items']:
                 for status in item['status']['containerStatuses']:
