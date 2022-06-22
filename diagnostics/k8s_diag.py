@@ -84,9 +84,9 @@ class Executor:
 
     @staticmethod
     @_check_exec
-    def get_logs(pod_name):
+    def get_logs(namespace, pod_name, options=""):
         """ Extract Kubernetes container logs. """
-        args = f'kubectl logs --all-containers --timestamps {pod_name}'
+        args = f'kubectl logs -n {namespace} --all-containers --timestamps {options} {pod_name}'
         return shell(args, check=True)
 
     @staticmethod
@@ -249,6 +249,20 @@ class K8sDiags:
                 continue
             if len(self.kubedata[namespace]['pods']['items']) == 0:
                 logging.info('[namespace %s] no pod data to check', namespace)
+
+            for pod_object in self.kubedata[namespace]['pods']['items']:
+                pod_name = pod_object['metadata']['name']
+                pod_dir = os.path.join(self.workdir, namespace, pod_name)
+                os.makedirs(pod_dir, exist_ok=True)
+                ret = self.k.get_logs(namespace, pod_name)
+                if ret is not None:
+                    with open(
+                            os.path.join(pod_dir,
+                                         f'podlogs-{pod_name}.txt'),
+                            'w') as fref:
+                        fref.write(ret['stdout'])
+                        logging.info('Copied log: %s/%s', namespace, pod_name)
+
             for item in self.kubedata[namespace]['pods']['items']:
                 for status in item['status']['containerStatuses']:
                     if not status['ready']:
@@ -320,16 +334,6 @@ class K8sDiags:
                 status = 'creating workdir {pod_dir}'
                 os.makedirs(pod_dir, exist_ok=True)
 
-                status = "getting logs from pod"
-                if not localhost:
-                    ret = self.k.get_logs(pod_name)
-                    if ret is not None:
-                        with open(
-                                os.path.join(pod_dir,
-                                             f'podlogs-{pod_name}.txt'),
-                                'w') as fref:
-                            fref.write(ret['stdout'])
-
                 i = 0
                 while i < len(cmds):
                     status = 'running diag commands from table'
@@ -383,7 +387,6 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'supd health',
-        'jq < /opt/ns1/supd/tmp/config.yml',
         'supd generate_runtime_logs',
         'lsof -i -n',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
@@ -406,7 +409,10 @@ POD_DIAGS = [{
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-        'LAST', '/ns1/data/log_bak', '/tmp/cmddi-dns-diag.tcp',
+        'LAST',
+        '/opt/ns1/supd/tmp/config.yml',
+        '/ns1/data/log_bak',
+        '/tmp/cmddi-dns-diag.tcp',
         '/etc/resolv.conf'
     ]
 }, {
@@ -420,7 +426,11 @@ POD_DIAGS = [{
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'supd viewconfig -yn', 'supd generate_runtime_logs'
     ],
-    'copy': ['/ns1/data/log_bak', '/ns1/data/leases']
+    'copy': [
+        '/ns1/data/log_bak',
+        '/ns1/data/leases',
+        '/opt/ns1/supd/tmp/config.yml'
+        ]
 }, {
     'name': 'ns1-proxy-container',
     'labels': [{
