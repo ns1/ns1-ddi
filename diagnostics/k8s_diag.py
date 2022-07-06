@@ -41,7 +41,7 @@ def shell(command, input_string="", check=False, cwd=None):
       should use the @check_exec decorator. """
     pipe = subprocess.run(args=command,
                           input=bytearray(input_string, 'utf-8'),
-                          capture_output=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           shell=True,
                           check=check,
                           cwd=cwd)
@@ -424,7 +424,9 @@ POD_DIAGS = [{
     'cmds': [
         'supd health',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
-        'supd viewconfig -yn', 'supd generate_runtime_logs'
+        'supd viewconfig -yn',
+        'keadatad dhcp4 Conf'
+        'supd generate_runtime_logs'
     ],
     'copy': [
         '/ns1/data/log_bak',
