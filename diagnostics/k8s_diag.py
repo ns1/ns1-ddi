@@ -8,6 +8,7 @@ from datetime import datetime
 import logging
 import os
 import subprocess
+import socket
 import sys
 
 import json
@@ -179,6 +180,7 @@ class K8sDiags:
         relative_workdir = os.path.basename(self.workdir)
         if path is None:
             path = os.path.join(self.tmpdir,
+                                socket.gethostname() + '-' +
                                 os.path.basename(self.workdir) + '.tgz')
         pipe = myshell(f'tar cvzf {path} {relative_workdir}',
                        check=True,
@@ -282,6 +284,7 @@ class K8sDiags:
 
     def k8s_event_checks(self):
         """ Report any issues observed in Kubernetes events. """
+        # timestamp output: events read assumed to be in chronological order
 
         results = {}
         for namespace in self.namespaces:
@@ -301,11 +304,14 @@ class K8sDiags:
                     results[pod_name]['count'] += 1
                     results[pod_name]['types'] |= {item['type']}
                     results[pod_name]['messages'] |= {item['message']}
+                    results[pod_name]['timestamp'] = {item['metadata']['creationTimestamp']}
             if len(results) > 0:
                 for item in results:
-                    logging.warning('[namespace %s] %d abnormal events for object %s: types %s, messages %s',
+                    logging.warning('[namespace %s] %d abnormal events for object %s: types %s, messages %s, most recent event at %s',
                                     namespace, results[item]['count'], item,
-                                    results[item]['types'], results[item]['messages'])
+                                    results[item]['types'],
+                                    results[item]['messages'],
+                                    results[item]['timestamp'])
 
     def run_by_label(self, spec):
         """ Run commands in pods that match all specified labels. """
@@ -387,7 +393,6 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'supd health',
-        'supd generate_runtime_logs',
         'lsof -i -n',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'dview -path /ns1/data/var/lib/trex-cache/dns/',
@@ -406,6 +411,7 @@ POD_DIAGS = [{
         'unbound-control ratelimit_list',
         'unbound-control ip_ratelimit_list',
         'bash -c "rm -f /tmp/cmddi-dns-diag.tcp; sleep 3; dig @127.0.0.1 www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
+        'supd generate_runtime_logs',
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
@@ -425,13 +431,39 @@ POD_DIAGS = [{
         'supd health',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'supd viewconfig -yn',
-        'keadatad dhcp4 Conf'
+        'keadatad dhcp4 Conf',
+        'rm -f /tmp/cmddi-dhcp-diag.tcp; tcpdump -i any -w /tmp/cmddi-dhcp-diag.tcp -A port 67 or icmp or arp 2>&1 & sleep 10; kill $!',
         'supd generate_runtime_logs'
+        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
+        'LAST',
+        '/etc/resolv.conf',
         '/ns1/data/log_bak',
         '/ns1/data/leases',
-        '/opt/ns1/supd/tmp/config.yml'
+        '/opt/ns1/supd/tmp/config.yml',
+        '/tmp/cmddi-dhcp-diag.tcp',
+        ]
+}, {
+    'name':
+    'xfr-pod',
+    'labels': [{
+        'app': 'ns1-cmddi-xfr'
+    }],
+    'cmds': [
+        'supd health',
+        'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
+        'supd viewconfig -yn',
+        'rm -f /tmp/cmddi-xfr-diag.tcp; tcpdump -i any -w /tmp/cmddi-xfr-diag.tcp -A port 5353 2>&1 & sleep 10; kill $!',
+        'supd generate_runtime_logs',
+        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
+    ],
+    'copy': [
+        'LAST',
+        '/etc/resolv.conf',
+        '/ns1/data/log_bak',
+        '/opt/ns1/supd/tmp/config.yml',
+        '/tmp/cmddi-xfr-diag.tcp',
         ]
 }, {
     'name': 'ns1-proxy-container',
@@ -439,6 +471,7 @@ POD_DIAGS = [{
         'app': 'ns1-proxy'
     }],
     'cmds': ['grep address:.[^0] /etc/envoy/envoy.yaml'],
+    'copy': ['/etc/resolv.conf']
 }, {
     'name': 'ns1-agent-container',
     'labels': [{
@@ -446,15 +479,16 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
+        'dig google.com',
         ],
-    'copy': ['/greengrass/v2/logs/']
+    'copy': ['/greengrass/v2/logs/', '/etc/resolv.conf']
 }, {
     'name': 'local',
     'localhost': True,
     'labels': [],
     'cmds': [
         'cat /etc/ns1/node_id',
-        'uname -a; echo; cat /etc/lsb-release',
+        'uname -a; echo; cat /etc/lsb-release || /etc/redhat-release',
         'ls -l /etc/resolv.conf; echo; cat /etc/resolv.conf',
         'free; echo; df',
         'ip route; echo; ip neighbor',
@@ -464,7 +498,9 @@ POD_DIAGS = [{
         'dig +short rs.dns-oarc.net TXT @127.0.0.1',
         'pstree -a',
         'ps -ef',
-        'systemctl list-unit-files'
+        'systemctl list-unit-files',
+        'curl -sI https://curl.se -o/dev/null -w "%{http_version}\n"',
+        'curl --proxy-insecure -sv -x https://proxy.prod.svc.nsone.net:443 www.google.com  -o /dev/null 2>&1',
     ],
     'copy': []
 }]
