@@ -393,6 +393,7 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'supd health',
+        'supd viewconfig -yn',
         'lsof -i -n',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'dview -path /ns1/data/var/lib/trex-cache/dns/',
@@ -433,7 +434,7 @@ POD_DIAGS = [{
         'supd viewconfig -yn',
         'keadatad dhcp4 Conf',
         'rm -f /tmp/cmddi-dhcp-diag.tcp; tcpdump -i any -w /tmp/cmddi-dhcp-diag.tcp -A port 67 or icmp or arp 2>&1 & sleep 10; kill $!',
-        'supd generate_runtime_logs'
+        'supd generate_runtime_logs',
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
@@ -441,6 +442,7 @@ POD_DIAGS = [{
         '/etc/resolv.conf',
         '/ns1/data/log_bak',
         '/ns1/data/leases',
+        '/etc/kea',
         '/opt/ns1/supd/tmp/config.yml',
         '/tmp/cmddi-dhcp-diag.tcp',
         ]
@@ -488,14 +490,14 @@ POD_DIAGS = [{
     'labels': [],
     'cmds': [
         'cat /etc/ns1/node_id',
-        'uname -a; echo; cat /etc/lsb-release || /etc/redhat-release',
+        'uname -a; echo; cat /etc/lsb-release || cat /etc/redhat-release',
         'ls -l /etc/resolv.conf; echo; cat /etc/resolv.conf',
         'free; echo; df',
         'ip route; echo; ip neighbor',
         'ss -apn || netstat -apn',
         'iptables -L -n',
         'dig +short rs.dns-oarc.net TXT',
-        'dig +short rs.dns-oarc.net TXT @127.0.0.1',
+        'dig +short rs.dns-oarc.net TXT @127.0.0.1 # error OK if not DNS host',
         'pstree -a',
         'ps -ef',
         'systemctl list-unit-files',
