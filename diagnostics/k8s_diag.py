@@ -498,6 +498,7 @@ POD_DIAGS = [{
         'dig +short rs.dns-oarc.net TXT @127.0.0.1',
         'pstree -a',
         'ps -ef',
+        'kubectl get secret ns1-proxy-certs -o json | jq -r .data.transport | base64 -d | openssl x509 -noout -ext subjectAltName',
         'systemctl list-unit-files',
         'curl -sI https://curl.se -o/dev/null -w "%{http_version}\n"',
         'curl --proxy-insecure -sv -x https://proxy.prod.svc.nsone.net:443 www.google.com  -o /dev/null 2>&1',
