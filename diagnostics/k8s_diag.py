@@ -393,6 +393,7 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'supd health',
+        'supd viewconfig -yn',
         'lsof -i -n',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'dview -path /ns1/data/var/lib/trex-cache/dns/',
@@ -445,6 +446,7 @@ POD_DIAGS = [{
         '/etc/resolv.conf',
         '/ns1/data/log_bak',
         '/ns1/data/leases',
+        '/etc/kea',
         '/opt/ns1/supd/tmp/config.yml',
         '/tmp/cmddi-dhcp-diag.tcp',
         '/ns1/data/log',
