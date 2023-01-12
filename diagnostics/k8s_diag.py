@@ -444,6 +444,7 @@ POD_DIAGS = [{
     'copy': [
 #       'LAST',
         '/etc/resolv.conf',
+        '/etc/kea',
         '/ns1/data/log_bak',
         '/ns1/data/leases',
         '/opt/ns1/supd/tmp/config.yml',
