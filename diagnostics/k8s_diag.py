@@ -393,7 +393,6 @@ POD_DIAGS = [{
     }],
     'cmds': [
         'supd health',
-        'supd viewconfig -yn',
         'lsof -i -n',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'dview -path /ns1/data/var/lib/trex-cache/dns/',
@@ -412,15 +411,20 @@ POD_DIAGS = [{
         'unbound-control ratelimit_list',
         'unbound-control ip_ratelimit_list',
         'bash -c "rm -f /tmp/cmddi-dns-diag.tcp; sleep 3; dig @127.0.0.1 www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
-        'supd generate_runtime_logs',
-        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
+        'env',
+#       'supd generate_runtime_logs',
+#       'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-        'LAST',
+#       'LAST',
         '/opt/ns1/supd/tmp/config.yml',
         '/ns1/data/log_bak',
         '/tmp/cmddi-dns-diag.tcp',
-        '/etc/resolv.conf'
+        '/etc/resolv.conf',
+        '/ns1/data/log',
+        '/ns1/data/debug',
+        '/etc/default/nsone',
+        '/etc/version',
     ]
 }, {
     'name':
@@ -431,20 +435,24 @@ POD_DIAGS = [{
     'cmds': [
         'supd health',
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
-        'supd viewconfig -yn',
         'keadatad dhcp4 Conf',
         'rm -f /tmp/cmddi-dhcp-diag.tcp; tcpdump -i any -w /tmp/cmddi-dhcp-diag.tcp -A port 67 or icmp or arp 2>&1 & sleep 10; kill $!',
-        'supd generate_runtime_logs',
-        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
+        'env',
+#       'supd generate_runtime_logs'
+#       'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-        'LAST',
+#       'LAST',
         '/etc/resolv.conf',
+        '/etc/kea',
         '/ns1/data/log_bak',
         '/ns1/data/leases',
-        '/etc/kea',
         '/opt/ns1/supd/tmp/config.yml',
         '/tmp/cmddi-dhcp-diag.tcp',
+        '/ns1/data/log',
+        '/ns1/data/debug',
+        '/etc/default/nsone',
+        '/etc/version',
         ]
 }, {
     'name':
@@ -457,15 +465,20 @@ POD_DIAGS = [{
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'supd viewconfig -yn',
         'rm -f /tmp/cmddi-xfr-diag.tcp; tcpdump -i any -w /tmp/cmddi-xfr-diag.tcp -A port 5353 2>&1 & sleep 10; kill $!',
-        'supd generate_runtime_logs',
-        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
+        'env',
+#       'supd generate_runtime_logs',
+#       'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-        'LAST',
+#       'LAST',
         '/etc/resolv.conf',
         '/ns1/data/log_bak',
         '/opt/ns1/supd/tmp/config.yml',
         '/tmp/cmddi-xfr-diag.tcp',
+        '/ns1/data/log',
+        '/ns1/data/debug',
+        '/etc/default/nsone',
+        '/etc/version',
         ]
 }, {
     'name': 'ns1-proxy-container',
