@@ -411,15 +411,20 @@ POD_DIAGS = [{
         'unbound-control ratelimit_list',
         'unbound-control ip_ratelimit_list',
         'bash -c "rm -f /tmp/cmddi-dns-diag.tcp; sleep 3; dig @127.0.0.1 www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
-        'supd generate_runtime_logs',
+#       'supd generate_runtime_logs',
+        'env',
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-        'LAST',
+#        'LAST',
         '/opt/ns1/supd/tmp/config.yml',
         '/ns1/data/log_bak',
         '/tmp/cmddi-dns-diag.tcp',
-        '/etc/resolv.conf'
+        '/etc/resolv.conf',
+        '/ns1/data/log',
+        '/ns1/data/debug',
+        '/etc/default/nsone',
+        '/etc/version'
     ]
 }, {
     'name':
