@@ -416,7 +416,7 @@ POD_DIAGS = [{
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-#        'LAST',
+#       'LAST',
         '/opt/ns1/supd/tmp/config.yml',
         '/ns1/data/log_bak',
         '/tmp/cmddi-dns-diag.tcp',
@@ -424,7 +424,7 @@ POD_DIAGS = [{
         '/ns1/data/log',
         '/ns1/data/debug',
         '/etc/default/nsone',
-        '/etc/version'
+        '/etc/version',
     ]
 }, {
     'name':
@@ -438,16 +438,20 @@ POD_DIAGS = [{
         'supd viewconfig -yn',
         'keadatad dhcp4 Conf',
         'rm -f /tmp/cmddi-dhcp-diag.tcp; tcpdump -i any -w /tmp/cmddi-dhcp-diag.tcp -A port 67 or icmp or arp 2>&1 & sleep 10; kill $!',
-        'supd generate_runtime_logs'
+#       'supd generate_runtime_logs'
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-        'LAST',
+#       'LAST',
         '/etc/resolv.conf',
         '/ns1/data/log_bak',
         '/ns1/data/leases',
         '/opt/ns1/supd/tmp/config.yml',
         '/tmp/cmddi-dhcp-diag.tcp',
+        '/ns1/data/log',
+        '/ns1/data/debug',
+        '/etc/default/nsone',
+        '/etc/version',
         ]
 }, {
     'name':
@@ -460,15 +464,19 @@ POD_DIAGS = [{
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'supd viewconfig -yn',
         'rm -f /tmp/cmddi-xfr-diag.tcp; tcpdump -i any -w /tmp/cmddi-xfr-diag.tcp -A port 5353 2>&1 & sleep 10; kill $!',
-        'supd generate_runtime_logs',
+#       'supd generate_runtime_logs',
         'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
-        'LAST',
+#       'LAST',
         '/etc/resolv.conf',
         '/ns1/data/log_bak',
         '/opt/ns1/supd/tmp/config.yml',
         '/tmp/cmddi-xfr-diag.tcp',
+        '/ns1/data/log',
+        '/ns1/data/debug',
+        '/etc/default/nsone',
+        '/etc/version',
         ]
 }, {
     'name': 'ns1-proxy-container',
