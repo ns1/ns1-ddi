@@ -411,9 +411,9 @@ POD_DIAGS = [{
         'unbound-control ratelimit_list',
         'unbound-control ip_ratelimit_list',
         'bash -c "rm -f /tmp/cmddi-dns-diag.tcp; sleep 3; dig @127.0.0.1 www.ns1.com A" & tcpdump -i any -w /tmp/cmddi-dns-diag.tcp -A port 53 or port 530 or port 531 2>&1 & sleep 10; kill $!',
-#       'supd generate_runtime_logs',
         'env',
-        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
+#       'supd generate_runtime_logs',
+#       'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
 #       'LAST',
@@ -437,8 +437,9 @@ POD_DIAGS = [{
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'keadatad dhcp4 Conf',
         'rm -f /tmp/cmddi-dhcp-diag.tcp; tcpdump -i any -w /tmp/cmddi-dhcp-diag.tcp -A port 67 or icmp or arp 2>&1 & sleep 10; kill $!',
+        'env',
 #       'supd generate_runtime_logs'
-        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
+#       'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
 #       'LAST',
@@ -463,8 +464,9 @@ POD_DIAGS = [{
         'curl -sS -I -x http://ns1-proxy:5353/ https://github.com',
         'supd viewconfig -yn',
         'rm -f /tmp/cmddi-xfr-diag.tcp; tcpdump -i any -w /tmp/cmddi-xfr-diag.tcp -A port 5353 2>&1 & sleep 10; kill $!',
+        'env',
 #       'supd generate_runtime_logs',
-        'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
+#       'ls -t /ns1/data/log/health | sed -e s,^,/ns1/data/log/health/, | head -1'
     ],
     'copy': [
 #       'LAST',
